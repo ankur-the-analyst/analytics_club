@@ -245,7 +245,13 @@
         // --- PROCTORING LOGIC ---
         function requestFullScreen() {
             const element = document.documentElement;
-            if (element.requestFullscreen) element.requestFullscreen().catch(e => console.log("Fullscreen denied", e));
+            if (element.requestFullscreen) {
+                // ADDED ERROR HANDLING AND USER FEEDBACK
+                element.requestFullscreen().catch(e => {
+                    console.error("Fullscreen Request Failed on user click:", e);
+                    showTempMessage('Browser blocked automatic Full Screen. Please click the full screen icon manually.', true);
+                });
+            }
             else if (element.mozRequestFullScreen) element.mozRequestFullScreen();
             else if (element.webkitRequestFullscreen) element.webkitRequestFullscreen();
             else if (element.msRequestFullscreen) element.msRequestFullscreen();
@@ -286,12 +292,12 @@
                         <p class="font-bold text-red-600">Violation ${proctoringViolations.total} of ${MAX_VIOLATIONS}</p>
                     </div>
                 `;
-                // Use "Resume Quiz" which is the functional equivalent of "Return to Quiz"
+                // Resume Quiz button is tied directly to requestFullScreen, ensuring it's a user gesture.
                 MODAL_CONFIRM_BTN.textContent = 'Resume Quiz (Enable Full Screen)';
                 MODAL_CONFIRM_BTN.className = "w-full py-3 px-4 rounded-lg text-white font-bold bg-yellow-600 hover:bg-yellow-700 transition shadow-md";
                 MODAL_CONFIRM_BTN.onclick = () => {
                     VIOLATION_MODAL.style.display = 'none';
-                    requestFullScreen(); // Forces fullscreen re-engagement
+                    requestFullScreen(); // THIS MUST BE THE ONLY FULLSCREEN CALL TIED TO A CLICK
                 };
             }
             VIOLATION_MODAL.style.display = 'flex';
@@ -307,7 +313,7 @@
                 violationCooldown = true;
                 
                 setTimeout(() => { violationCooldown = false; }, 3000); 
-                requestFullScreen(); 
+                // Removed non-gesture requestFullScreen() here. It's now only triggered by the modal button click.
             } 
             else if (type === 'copyPaste') {
                 proctoringViolations.copyPaste++;
@@ -561,6 +567,7 @@
                         <p class="text-xl font-bold text-gray-900">${studentInfo.name}</p>
                         <p class="text-sm text-gray-500 mt-1">Admission No: <span class="font-mono text-gray-700 font-semibold">${studentInfo.admissionNo}</span></p>
                     </div>
+
                     <div class="mb-6 p-3 rounded-lg ${statusClass} inline-block w-full">
                         <div class="flex items-center justify-center">
                             <i class="fas ${statusIcon} mr-2"></i> <span class="font-bold">${statusMsg}</span>
@@ -700,6 +707,7 @@
             QUIZ_OFF_CONFIRM_BTN.onclick = () => { QUIZ_OFF_MODAL.style.display = 'none'; };
             
             const fsHandler = () => {
+                // If exiting fullscreen while quiz is active and modal is not showing, trigger a violation.
                 if (!document.fullscreenElement && !document.webkitFullscreenElement && currentQuestionIndex < quizQuestions.length && VIOLATION_MODAL.style.display !== 'flex') {
                     handleProctoringViolation('windowSwitch', 'blur'); 
                 }
