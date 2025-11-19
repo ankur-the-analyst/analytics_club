@@ -10,8 +10,7 @@
     <style>
         #app { min-height: 100vh; }
         
-        /* RESTORED TO TOP RIGHT */
-        #adminButton { position: fixed; top: 10px; right: 10px; z-index: 100; }
+        /* Removed fixed #adminButton */
         
         #progressBarContainer { position: relative; height: 8px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
         #progressBar { height: 100%; width: 100%; background-color: #ef4444; transition: width 1s linear; }
@@ -42,15 +41,13 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 select-none"> <div id="loadingOverlay">
+<body class="bg-gray-50 select-none">
+
+    <div id="loadingOverlay">
         <div class="spinner"></div>
         <h2 class="text-xl font-bold text-gray-800">Processing...</h2>
         <p class="text-gray-500">Syncing with Database...</p>
     </div>
-
-    <button id="adminButton" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition duration-150 ease-in-out text-sm">
-        <i class="fas fa-lock mr-2"></i>Admin Panel
-    </button>
 
     <div id="app" class="flex items-center justify-center p-4"></div>
 
@@ -121,11 +118,14 @@
         let proctoringViolations = { total: 0, windowSwitch: 0, copyPaste: 0 };
         const MAX_VIOLATIONS = 3;
         let violationCooldown = false; 
-        const TOP_EDGE_THRESHOLD = 50; // Pixels from top considered "Danger Zone" for swipes
+        
+        // **NEW: Universal Edge Thresholds**
+        const EDGE_THRESHOLD = 50; // Pixels from any edge considered a "Danger Zone"
+        const TOP_EDGE_THRESHOLD = 50; 
 
         // DOM Elements
         const APP_CONTAINER = document.getElementById('app');
-        const ADMIN_BUTTON = document.getElementById('adminButton');
+        // const ADMIN_BUTTON = document.getElementById('adminButton'); // Removed fixed button reference
         const VIOLATION_MODAL = document.getElementById('violationModal');
         const MODAL_CONFIRM_BTN = document.getElementById('modalConfirmBtn');
         const VIOLATION_MESSAGE = document.getElementById('violationMessage');
@@ -161,8 +161,7 @@
             const signInForm = document.getElementById('signInForm');
             if(signInForm) signInForm.style.display = 'block'; 
 
-            // Only show admin button in Sign In or Leaderboard (admin) views
-            ADMIN_BUTTON.style.display = (viewName === 'quiz') ? 'none' : 'block';
+            // Logic for fixed ADMIN_BUTTON removed
             APP_CONTAINER.innerHTML = '';
 
             if (viewName === 'signin') renderSignIn();
@@ -278,7 +277,9 @@
             } else {
                 // Specific messages based on violation type
                 let detailMsg = "Suspicious activity detected.";
-                if (reason === 'swipedown') detailMsg = "Do not swipe from the top edge (Notification Panel).";
+                if (reason === 'swipedown') detailMsg = "Do not swipe from the **top edge** (Notification Panel).";
+                else if (reason === 'swipeleft' || reason === 'swiperight') detailMsg = "Do not swipe from the **side edges** (Browser Navigation).";
+                else if (reason === 'swipeup') detailMsg = "Do not swipe from the **bottom edge** (Control Center/Home Bar).";
                 else if (reason === 'blur') detailMsg = "Do not switch apps or minimize the browser.";
                 else if (reason === 'copypaste') detailMsg = "Copy/Paste is strictly prohibited.";
 
@@ -289,11 +290,12 @@
                         <p class="font-bold text-red-600">Violation ${proctoringViolations.total} of ${MAX_VIOLATIONS}</p>
                     </div>
                 `;
-                MODAL_CONFIRM_BTN.textContent = 'Resume Quiz';
+                // Use "Resume Quiz" which is the functional equivalent of "Return to Quiz"
+                MODAL_CONFIRM_BTN.textContent = 'Resume Quiz (Enable Full Screen)';
                 MODAL_CONFIRM_BTN.className = "w-full py-3 px-4 rounded-lg text-white font-bold bg-yellow-600 hover:bg-yellow-700 transition shadow-md";
                 MODAL_CONFIRM_BTN.onclick = () => {
                     VIOLATION_MODAL.style.display = 'none';
-                    requestFullScreen(); 
+                    requestFullScreen(); // Forces fullscreen re-engagement
                 };
             }
             VIOLATION_MODAL.style.display = 'flex';
@@ -334,16 +336,39 @@
             handleProctoringViolation('windowSwitch', 'blur'); 
         };
 
-        // 3. EDGE SWIPE DETECTION (TOUCH)
+        // 3. EDGE SWIPE DETECTION (TOUCH) - Enhanced for all edges
         const touchStartHandler = (e) => {
-            // IGNORE violations if touching the Admin Button
-            if(e.target.closest('#adminButton')) return;
+            // Only fire if we are actively in the quiz
+            if (currentQuestionIndex >= quizQuestions.length) return; 
 
             if(e.touches && e.touches.length > 0) {
+                const touchX = e.touches[0].clientX;
                 const touchY = e.touches[0].clientY;
-                // If touch starts in the top 50px (Notification area)
+                const screenWidth = window.innerWidth;
+                const screenHeight = window.innerHeight;
+                let reason = null;
+
+                // 1. Top Edge Swipe (Notification Panel)
                 if(touchY < TOP_EDGE_THRESHOLD) {
-                    handleProctoringViolation('windowSwitch', 'swipedown');
+                    reason = 'swipedown';
+                } 
+                // 2. Left Edge Swipe (Back Navigation)
+                else if(touchX < EDGE_THRESHOLD) {
+                    reason = 'swipeleft';
+                }
+                // 3. Right Edge Swipe (Forward Navigation)
+                else if(touchX > screenWidth - EDGE_THRESHOLD) {
+                    reason = 'swiperight';
+                }
+                // 4. Bottom Edge Swipe (Control Center/Home Bar)
+                else if(touchY > screenHeight - EDGE_THRESHOLD) {
+                    reason = 'swipeup';
+                }
+                
+                if (reason) {
+                    // Prevent default browser behavior (like navigating back/forward on side swipes)
+                    e.preventDefault(); 
+                    handleProctoringViolation('windowSwitch', reason);
                 }
             }
         };
@@ -358,7 +383,7 @@
             document.addEventListener('visibilitychange', visibilityChangeHandler);
             window.addEventListener('blur', blurHandler); 
             
-            // Touch listener for Edge Swipes
+            // Touch listener for all Edge Swipes (now universal)
             document.addEventListener('touchstart', touchStartHandler, { passive: false });
             
             document.addEventListener('copy', copyCutPasteHandler);
@@ -425,11 +450,11 @@
                     <div class="mobile-warning">
                         <p class="font-bold text-red-800"><i class="fas fa-ban mr-2"></i>PROCTORING RULES:</p>
                         <ul class="list-disc ml-5 mt-2 space-y-2 text-sm text-red-900 font-medium">
-                            <li>Do NOT touch the top edge of the screen.</li>
-                            <li>Do NOT swipe down (Notification Panel).</li>
-                            <li>Do NOT switch apps or take calls.</li>
+                            <li>Do NOT touch ANY edge of the screen.</li>
+                            <li>Do NOT swipe down, up, left, or right.</li>
+                            <li>Do NOT switch apps or minimize the browser.</li>
                         </ul>
-                        <p class="mt-4 p-2 bg-red-100 border border-red-200 rounded text-xs text-center font-bold text-red-700">Any top-edge swipe triggers a violation immediately.</p>
+                        <p class="mt-4 p-2 bg-red-100 border border-red-200 rounded text-xs text-center font-bold text-red-700">Any edge swipe is considered a Tab Switch Violation.</p>
                     </div>
 
                     <form id="signInForm" class="space-y-4 mt-6">
@@ -437,6 +462,10 @@
                         <div><label class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="collegeEmail" required class="mt-1 block w-full px-4 py-2 border rounded-lg"></div>
                         <div><label class="block text-sm font-medium text-gray-700">Admission No.</label><input type="text" id="admissionNo" required class="mt-1 block w-full px-4 py-2 border rounded-lg"></div>
                         <button type="submit" class="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition mt-6 shadow-lg font-bold">Start Quiz</button>
+                        
+                        <button type="button" id="adminSignInButton" class="w-full py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition font-bold mt-2">
+                            <i class="fas fa-lock mr-2"></i>Admin Panel
+                        </button>
                     </form>
                 </div>`;
 
@@ -457,6 +486,8 @@
                 enableProctoring();
                 setView('quiz');
             });
+            
+            document.getElementById('adminSignInButton').onclick = () => setView('admin');
         }
 
         function renderQuiz() {
@@ -494,7 +525,6 @@
             `;
 
             document.getElementById('nextButton').onclick = (e) => {
-                // Stop propagation to ensure clicks on button don't bubble weirdly (though blur is on window)
                 e.stopPropagation();
                 const selected = document.querySelector('input[name="answer"]:checked');
                 studentResponses[currentQuestionIndex] = selected ? selected.value : null;
@@ -667,7 +697,7 @@
         // --- INIT ---
         document.addEventListener('DOMContentLoaded', () => {
             setView('signin');
-            ADMIN_BUTTON.onclick = () => setView('admin');
+            // ADMIN_BUTTON.onclick logic is now inside renderSignIn
             QUIZ_OFF_CONFIRM_BTN.onclick = () => { QUIZ_OFF_MODAL.style.display = 'none'; };
             
             const fsHandler = () => {
