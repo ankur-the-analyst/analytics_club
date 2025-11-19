@@ -10,8 +10,6 @@
     <style>
         #app { min-height: 100vh; }
         
-        /* Removed fixed #adminButton */
-        
         #progressBarContainer { position: relative; height: 8px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
         #progressBar { height: 100%; width: 100%; background-color: #ef4444; transition: width 1s linear; }
         #countdownTimer { font-size: 1.25rem; font-weight: 700; color: #ef4444; text-align: right; margin-bottom: 10px; }
@@ -119,13 +117,12 @@
         const MAX_VIOLATIONS = 3;
         let violationCooldown = false; 
         
-        // **NEW: Universal Edge Thresholds**
+        // **Universal Edge Thresholds**
         const EDGE_THRESHOLD = 50; // Pixels from any edge considered a "Danger Zone"
         const TOP_EDGE_THRESHOLD = 50; 
 
         // DOM Elements
         const APP_CONTAINER = document.getElementById('app');
-        // const ADMIN_BUTTON = document.getElementById('adminButton'); // Removed fixed button reference
         const VIOLATION_MODAL = document.getElementById('violationModal');
         const MODAL_CONFIRM_BTN = document.getElementById('modalConfirmBtn');
         const VIOLATION_MESSAGE = document.getElementById('violationMessage');
@@ -161,7 +158,6 @@
             const signInForm = document.getElementById('signInForm');
             if(signInForm) signInForm.style.display = 'block'; 
 
-            // Logic for fixed ADMIN_BUTTON removed
             APP_CONTAINER.innerHTML = '';
 
             if (viewName === 'signin') renderSignIn();
@@ -559,8 +555,12 @@
                     <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6">
                         <i class="fas fa-check-circle text-3xl text-green-600"></i>
                     </div>
-                    <h2 class="text-3xl font-extrabold text-gray-900 mb-3">${wasTerminated ? 'Terminated' : 'Submitted'}</h2>
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-3">${wasTerminated ? 'Exam Terminated' : 'Quiz Submitted'}</h2>
                     
+                    <div class="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                        <p class="text-xl font-bold text-gray-900">${studentInfo.name}</p>
+                        <p class="text-sm text-gray-500 mt-1">Admission No: <span class="font-mono text-gray-700 font-semibold">${studentInfo.admissionNo}</span></p>
+                    </div>
                     <div class="mb-6 p-3 rounded-lg ${statusClass} inline-block w-full">
                         <div class="flex items-center justify-center">
                             <i class="fas ${statusIcon} mr-2"></i> <span class="font-bold">${statusMsg}</span>
@@ -697,7 +697,6 @@
         // --- INIT ---
         document.addEventListener('DOMContentLoaded', () => {
             setView('signin');
-            // ADMIN_BUTTON.onclick logic is now inside renderSignIn
             QUIZ_OFF_CONFIRM_BTN.onclick = () => { QUIZ_OFF_MODAL.style.display = 'none'; };
             
             const fsHandler = () => {
